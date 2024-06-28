@@ -1,0 +1,116 @@
+--create temp table for the business's photo count
+create temp table PhotoCount AS
+select business_id, Numphotos
+from BusinessPhotoCount
+--create temp table for the data cleaning step
+create temp table CleanedCoffeeCategory AS
+select
+    b.business_id, 
+    b.name, 
+    b.state, 
+    b.categories,
+    b.is_open,
+    b.BusinessAcceptsCreditCards,
+    r.stars,
+--Convert city data into a format that python can read
+  	CASE
+    	when b.state = 'AZ' then 0
+        when b.state = 'NV' Then 1
+        else 2
+    end as State1,
+--calculate the total opening hours per business
+--Clean data and process cross-day time. Use the CASE clause to check if the end time is less than the start time.BusinessPhotoCount
+--Convert the time to minutes
+(
+    (CASE
+    	when b.Monday = 'N/A' THEN 0
+     	else 
+     		(case
+     			when cast(substr(b.Monday, instr(b.Monday,'-') + 1, 2) as integer) < cast(substr(b.Monday, 1, 2) as integer) then 
+     				(cast(substr(b.Monday, instr(b.Monday, '-') + 1, 2) as integer)+24)*60 + cast(substr(b.Monday, instr(b.Monday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Monday, 1 ,2) as integer)*60 + cast(substr(b.Monday, 4, 2) as integer)    		
+        	    ELSE cast(substr(b.Monday, instr(b.Monday, '-') + 1, 2) as integer)*60 + cast(substr(b.Monday, instr(b.Monday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Monday, 1 ,2) as integer)*60 + cast(substr(b.Monday, 4, 2) as integer)
+     		end)
+     end) +
+    (CASE
+    	when b.Tuesday = 'N/A' THEN 0
+        else 
+     		(case
+     			when cast(substr(b.Tuesday, instr(b.Tuesday,'-') + 1, 2) as integer) < cast(substr(b.Tuesday, 1, 2) as integer) then 
+     				(cast(substr(b.Tuesday, instr(b.Tuesday, '-') + 1, 2) as integer)+24)*60 + cast(substr(b.Tuesday, instr(b.Tuesday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Tuesday, 1 ,2) as integer)*60 + cast(substr(b.Tuesday, 4, 2) as integer)    		
+        	    ELSE cast(substr(b.Tuesday, instr(b.Tuesday, '-') + 1, 2) as integer)*60 + cast(substr(b.Tuesday, instr(b.Tuesday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Tuesday, 1 ,2) as integer)*60 + cast(substr(b.Tuesday, 4, 2) as integer)
+     		end)
+    end) +
+    (CASE
+    	when b.Wednesday = 'N/A' THEN 0
+        else 
+     		(case
+     			when cast(substr(b.Wednesday, instr(b.Wednesday,'-') + 1, 2) as integer) < cast(substr(b.Wednesday, 1, 2) as integer) then 
+     				(cast(substr(b.Wednesday, instr(b.Wednesday, '-') + 1, 2) as integer)+24)*60 + cast(substr(b.Wednesday, instr(b.Wednesday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Wednesday, 1 ,2) as integer)*60 + cast(substr(b.Wednesday, 4, 2) as integer)    		
+        	    ELSE cast(substr(b.Wednesday, instr(b.Wednesday, '-') + 1, 2) as integer)*60 + cast(substr(b.Wednesday, instr(b.Wednesday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Wednesday, 1 ,2) as integer)*60 + cast(substr(b.Wednesday, 4, 2) as integer)
+     		end)
+    end) +
+    (CASE
+    	when b.Thursday = 'N/A' THEN 0
+        else 
+     		(case
+     			when cast(substr(b.Thursday, instr(b.Thursday,'-') + 1, 2) as integer) < cast(substr(b.Thursday, 1, 2) as integer) then 
+     				(cast(substr(b.Thursday, instr(b.Thursday, '-') + 1, 2) as integer)+24)*60 + cast(substr(b.Thursday, instr(b.Thursday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Thursday, 1 ,2) as integer)*60 + cast(substr(b.Thursday, 4, 2) as integer)    		
+        	    ELSE cast(substr(b.Thursday, instr(b.Thursday, '-') + 1, 2) as integer)*60 + cast(substr(b.Thursday, instr(b.Thursday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Thursday, 1 ,2) as integer)*60 + cast(substr(b.Thursday, 4, 2) as integer)
+     		end)
+    end) +
+    (CASE
+    	when b.Friday = 'N/A' THEN 0
+        else 
+     		(case
+     			when cast(substr(b.Friday, instr(b.Friday,'-') + 1, 2) as integer) < cast(substr(b.Friday, 1, 2) as integer) then 
+     				(cast(substr(b.Friday, instr(b.Friday, '-') + 1, 2) as integer)+24)*60 + cast(substr(b.Friday, instr(b.Friday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Friday, 1 ,2) as integer)*60 + cast(substr(b.Friday, 4, 2) as integer)    		
+        	    ELSE cast(substr(b.Friday, instr(b.Friday, '-') + 1, 2) as integer)*60 + cast(substr(b.Friday, instr(b.Friday, '-') + 4, 2) as integer) - 
+                     cast(substr(b.Friday, 1 ,2) as integer)*60 + cast(substr(b.Friday, 4, 2) as integer)
+     		end)
+    end))/60 as TotalOpenTime, --convert the total operation time to hour
+    b.review_count,
+    IFNULL(p.Numphotos, 0) as Numphotos, --Use IFNULL to handle possible null values
+--Convert credit card data into a format that python can read
+--Using IFNULL handle possible null value in Businesscreditcards column
+    Case 
+    	when IFNULL(b.BusinessAcceptsCreditCards, 0) = '1' then 1
+        else 0
+    end as AcceptCards
+from business b join review r on b.business_id = r.business_id
+left join PhotoCount p on b.business_id = p.business_id
+where b.categories like '%Coffe%';
+
+
+#Regression Analysis in Python:
+import pandas
+import statsmodels.api as sm
+
+
+#Check data integrity
+data = pandas.read_csv('yelp_reduced.sqlite.csv')
+print(data.head())
+
+
+# Define independent and dependent variables
+X = data[['State1', 'is_open', 'TotalOpenTime', 'review_count', 'Numphotos', 'AcceptCards']]
+Y = data['stars']
+
+
+# Add constant variable
+X = sm.add_constant(X)
+
+
+# Regression function
+model = sm.OLS(Y, X).fit()
+
+
+print(model.summary())
